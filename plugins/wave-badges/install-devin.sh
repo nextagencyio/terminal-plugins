@@ -32,7 +32,7 @@ jq --arg wb "$WB" '
   .hooks.Stop[0]              |= (strip | add("done")) |
   .hooks.UserPromptSubmit[0]  |= (strip | add("working")) |
   .hooks.PostToolUse[0]       |= (strip | add("working")) |
-  .hooks.SessionStart[0]      |= (strip | add("clear")) |
+  .hooks.SessionStart[0]      |= (strip | add("start")) |
   .hooks.SessionEnd[0]        |= (strip | add("clear"))
 ' "$CFG" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
 

@@ -1,9 +1,12 @@
 #!/bin/bash
-# Wave Terminal status badges for terminal AI agents (Claude Code, Devin CLI).
-# Usage: wave-badge <agent-name> <working|attention|done|clear>
-# Hook JSON on stdin is drained and ignored. No-op outside Wave.
+# Wave Terminal status badges for terminal AI agents (Claude Code, Devin CLI, opencode).
+# Usage: wave-badge <agent-name> <start|working|attention|question|done|error|clear>
+# Reads the hook's JSON payload on stdin (cwd, tool_name, message) to add context
+# to titles and notifications. No-op outside Wave.
 
-cat > /dev/null
+INPUT=""
+[ -t 0 ] || INPUT=$(head -c 8192)
+
 [ -n "$WAVETERM_BLOCKID" ] || exit 0
 
 WSH=$(command -v wsh 2>/dev/null)
@@ -16,6 +19,17 @@ fi
 AGENT="${1:-Agent}"
 STATE="$2"
 
+CWD="" MSG="" TOOL=""
+if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
+    CWD=$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null)
+    MSG=$(jq -r '.message // empty' <<<"$INPUT" 2>/dev/null)
+    TOOL=$(jq -r '.tool_name // empty' <<<"$INPUT" 2>/dev/null)
+fi
+[ -n "$CWD" ] || CWD="${DEVIN_PROJECT_DIR:-$PWD}"
+PROJECT=$(basename "$CWD" 2>/dev/null)
+CTX=""
+[ -n "$PROJECT" ] && CTX=" · $PROJECT"
+
 # Walk up the process tree to the agent process. Badges pid-linked to it
 # survive Wave's clear-on-focus and auto-clear when the session exits.
 agent_pid() {
@@ -23,7 +37,7 @@ agent_pid() {
     while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
         comm=$(ps -o comm= -p "$pid" 2>/dev/null)
         case "${comm##*/}" in
-            devin|claude|node|bun) echo "$pid"; return ;;
+            devin|claude|node|bun|opencode) echo "$pid"; return ;;
         esac
         pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
     done
@@ -33,10 +47,21 @@ PID=$(agent_pid)
 PIDFLAG=()
 [ -n "$PID" ] && PIDFLAG=(--pid "$PID")
 
+set_title() {
+    local label="$PROJECT" branch
+    branch=$(git -C "$CWD" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    [ -n "$branch" ] && [ "$branch" != "HEAD" ] && label="$label · $branch"
+    [ -n "$label" ] && "$WSH" setmeta "frame:title=$AGENT — $label"
+}
+
 # Wave only lets a new badge replace a higher-priority one, so every
 # transition clears first — otherwise a bell (20) could never step down
 # to a spinner (5) or check (10).
 case "$STATE" in
+    start)
+        "$WSH" badge --clear
+        set_title
+        ;;
     working)
         "$WSH" badge --clear
         "$WSH" badge spinner-third+spin --color '#00FFDB' --priority 5 "${PIDFLAG[@]}"
@@ -44,12 +69,22 @@ case "$STATE" in
     attention)
         "$WSH" badge --clear
         "$WSH" badge bell --color yellow --priority 20 --beep "${PIDFLAG[@]}"
-        "$WSH" notify "$AGENT needs your input" -t "$AGENT"
+        "$WSH" notify "${MSG:-needs your input}${TOOL:+ [$TOOL]}$CTX" -t "$AGENT"
+        ;;
+    question)
+        "$WSH" badge --clear
+        "$WSH" badge message-question --color '#e0b956' --priority 20 --beep "${PIDFLAG[@]}"
+        "$WSH" notify "${MSG:-has a question for you}$CTX" -t "$AGENT"
         ;;
     done)
         "$WSH" badge --clear
         "$WSH" badge check --color green --priority 10 "${PIDFLAG[@]}"
-        "$WSH" notify "$AGENT finished its turn" -t "$AGENT"
+        "$WSH" notify "finished its turn$CTX" -t "$AGENT"
+        ;;
+    error)
+        "$WSH" badge --clear
+        "$WSH" badge triangle-exclamation --color '#FF453A' --priority 15 "${PIDFLAG[@]}"
+        "$WSH" notify "${MSG:-hit an error}$CTX" -t "$AGENT"
         ;;
     clear)
         "$WSH" badge --clear

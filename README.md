@@ -8,6 +8,8 @@ Custom Claude Code plugin marketplace for [nextagencyio](https://github.com/next
 
 ## Plugins
 
+Also installable as a Devin CLI plugin: `devin plugins install nextagencyio/wave-plugins`
+
 | Plugin | Description |
 |---|---|
-| [wave-badges](plugins/wave-badges) | Agent status badges + notifications for Wave Terminal tabs (Claude Code + Devin CLI) |
+| [wave-badges](plugins/wave-badges) | Agent status badges, contextual notifications + block titles for Wave Terminal (Claude Code, Devin CLI, opencode) |
