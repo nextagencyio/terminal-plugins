@@ -1,9 +1,9 @@
-# NextAgency Claude Plugins
+# NextAgency Wave Plugins
 
-Custom Claude Code plugin marketplace for [nextagencyio](https://github.com/nextagencyio).
+Custom Claude Code plugin marketplace for [nextagencyio](https://github.com/nextagencyio) — Wave Terminal integrations for AI agents.
 
 ```
-/plugin marketplace add nextagencyio/claude-plugins
+/plugin marketplace add nextagencyio/wave-plugins
 ```
 
 ## Plugins

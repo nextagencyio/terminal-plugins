@@ -18,7 +18,7 @@ Badges are **pid-linked** to the agent process, so they survive Wave's clear-on-
 ## Install — Claude Code
 
 ```
-/plugin marketplace add nextagencyio/claude-plugins
+/plugin marketplace add nextagencyio/wave-plugins
 /plugin install wave-badges@nextagencyio
 ```
 
