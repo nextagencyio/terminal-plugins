@@ -1,0 +1,59 @@
+#!/bin/bash
+# Wave Terminal status badges for terminal AI agents (Claude Code, Devin CLI).
+# Usage: wave-badge <agent-name> <working|attention|done|clear>
+# Hook JSON on stdin is drained and ignored. No-op outside Wave.
+
+cat > /dev/null
+[ -n "$WAVETERM_BLOCKID" ] || exit 0
+
+WSH=$(command -v wsh 2>/dev/null)
+if [ -z "$WSH" ]; then
+    WSH=$(ls -t "$HOME"/Applications/Wave.app/Contents/Resources/app.asar.unpacked/dist/bin/wsh-*-darwin.arm64 \
+                /Applications/Wave.app/Contents/Resources/app.asar.unpacked/dist/bin/wsh-*-darwin.arm64 2>/dev/null | head -1)
+fi
+[ -n "$WSH" ] || exit 0
+
+AGENT="${1:-Agent}"
+STATE="$2"
+
+# Walk up the process tree to the agent process. Badges pid-linked to it
+# survive Wave's clear-on-focus and auto-clear when the session exits.
+agent_pid() {
+    local pid=$PPID comm
+    while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
+        comm=$(ps -o comm= -p "$pid" 2>/dev/null)
+        case "${comm##*/}" in
+            devin|claude|node|bun) echo "$pid"; return ;;
+        esac
+        pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    done
+}
+
+PID=$(agent_pid)
+PIDFLAG=()
+[ -n "$PID" ] && PIDFLAG=(--pid "$PID")
+
+# Wave only lets a new badge replace a higher-priority one, so every
+# transition clears first — otherwise a bell (20) could never step down
+# to a spinner (5) or check (10).
+case "$STATE" in
+    working)
+        "$WSH" badge --clear
+        "$WSH" badge spinner-third+spin --color '#00FFDB' --priority 5 "${PIDFLAG[@]}"
+        ;;
+    attention)
+        "$WSH" badge --clear
+        "$WSH" badge bell --color yellow --priority 20 --beep "${PIDFLAG[@]}"
+        "$WSH" notify "$AGENT needs your input" -t "$AGENT"
+        ;;
+    done)
+        "$WSH" badge --clear
+        "$WSH" badge check --color green --priority 10 "${PIDFLAG[@]}"
+        "$WSH" notify "$AGENT finished its turn" -t "$AGENT"
+        ;;
+    clear)
+        "$WSH" badge --clear
+        ;;
+esac 2>/dev/null
+
+exit 0

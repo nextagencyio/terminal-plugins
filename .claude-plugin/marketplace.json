@@ -1,0 +1,14 @@
+{
+  "name": "nextagencyio",
+  "owner": {
+    "name": "NextAgency",
+    "url": "https://github.com/nextagencyio"
+  },
+  "plugins": [
+    {
+      "name": "wave-badges",
+      "source": "./plugins/wave-badges",
+      "description": "Agent status badges and notifications for Wave Terminal tabs (Claude Code + Devin CLI)"
+    }
+  ]
+}
