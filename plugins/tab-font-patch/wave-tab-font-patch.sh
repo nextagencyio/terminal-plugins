@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # wave-tab-font-patch.sh
 #
-# Idempotently patches Wave Terminal's bundled CSS to enlarge the tab-bar
-# font (.tab .name { font-size: 11px } -> $TAB_FONT_SIZE px).
+# Idempotently patches Wave Terminal's bundled app.asar to enlarge tab fonts
+# in BOTH tab placements:
+#   1. Top tab bar  — CSS rule `.tab .name { font-size: 11px }` -> $TAB_FONT_SIZE px
+#   2. Left sidebar — Tailwind `text-xs` (12px) on the VTabBar item -> matching class
 # Re-applies itself after Wave auto-updates replace app.asar.
 #
 # Safe to run repeatedly: detects an already-patched asar and no-ops.
@@ -19,12 +21,19 @@
 # with the existing unpacked dir.
 #
 # Config:
-#   TAB_FONT_SIZE  (default 18)
+#   TAB_FONT_SIZE  (default 18)  — top tab bar, in px
+#   VTAB_FONT_SIZE (default = TAB_FONT_SIZE) — left sidebar tabs, in px
 #   WAVE_APP_PATH  (default /Users/jcallicott/Applications/Wave.app)
+#
+# The left sidebar uses Tailwind utility classes (text-xs/text-sm/text-base/
+# text-lg/text-xl = 12/14/16/18/20px). Non-standard sizes fall back to the
+# nearest standard class. To change sizes after patching, restore from
+# app.asar.orig and re-run.
 
 set -uo pipefail
 
 TAB_FONT_SIZE="${TAB_FONT_SIZE:-18}"
+VTAB_FONT_SIZE="${VTAB_FONT_SIZE:-$TAB_FONT_SIZE}"
 WAVE_APP_PATH="${WAVE_APP_PATH:-/Users/jcallicott/Applications/Wave.app}"
 ASAR="$WAVE_APP_PATH/Contents/Resources/app.asar"
 BACKUP="$ASAR.orig"
@@ -34,6 +43,26 @@ WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$*" >> "$LOG_FILE"; }
+
+# Map a pixel size to the closest Tailwind text-size class that exists in
+# Wave's pre-built CSS bundle (arbitrary values like text-[17px] are NOT
+# available — they'd only exist if Tailwind's JIT had compiled them).
+px_to_tw_class() {
+  case "$1" in
+    12) echo "text-xs" ;;
+    14) echo "text-sm" ;;
+    16) echo "text-base" ;;
+    18) echo "text-lg" ;;
+    20) echo "text-xl" ;;
+    *)  # snap to nearest standard size
+      if   [[ "$1" -le 13 ]]; then echo "text-xs"
+      elif [[ "$1" -le 15 ]]; then echo "text-sm"
+      elif [[ "$1" -le 17 ]]; then echo "text-base"
+      elif [[ "$1" -le 19 ]]; then echo "text-lg"
+      else echo "text-xl"
+      fi ;;
+  esac
+}
 
 # --- preconditions ---------------------------------------------------------
 if [[ ! -f "$ASAR" ]]; then
@@ -47,7 +76,9 @@ if ! command -v npx >/dev/null 2>&1; then
 fi
 
 ASAR_BIN=(npx --yes @electron/asar)
-MARKER="/* wave-tab-font-patch:${TAB_FONT_SIZE}px */"
+CSS_MARKER="/* wave-tab-font-patch:${TAB_FONT_SIZE}px */"
+VTAB_TW_CLASS="$(px_to_tw_class "$VTAB_FONT_SIZE")"
+VTAB_MARKER_CLASS="wave-tab-font-patch-vtab-${VTAB_FONT_SIZE}px"
 UNPACK_DIR_PATH="$WAVE_APP_PATH/Contents/Resources/app.asar.unpacked"
 
 # --- ensure native binaries are executable ---------------------------------
@@ -71,9 +102,25 @@ if [[ -z "$CSS_REL" ]]; then
 fi
 CSS_FILE="$WORK_DIR/extracted/dist/frontend/assets/$(basename "$CSS_REL")"
 
-# --- already patched? ------------------------------------------------------
-if grep -qF "$MARKER" "$CSS_FILE"; then
-  log "already patched at ${TAB_FONT_SIZE}px — no-op"
+# Find the main JS bundle — the one referenced in index.html. There are
+# multiple index-*.js files in the assets dir (the main bundle + tiny chunks),
+# so `find | head -1` is unreliable. The entry-point script src is the
+# reliable selector.
+JS_BASENAME="$(grep -oE 'src="\./assets/(index-[^"]+\.js)"' "$WORK_DIR/extracted/dist/frontend/index.html" | sed -E 's/^src="\.\/assets\///; s/"$//')"
+if [[ -z "$JS_BASENAME" ]]; then
+  log "ERROR: could not locate entry-point index-*.js in index.html"
+  exit 0
+fi
+JS_FILE="$WORK_DIR/extracted/dist/frontend/assets/$JS_BASENAME"
+
+# --- check what's already patched ------------------------------------------
+CSS_DONE=0
+JS_DONE=0
+grep -qF "$CSS_MARKER" "$CSS_FILE" && CSS_DONE=1
+grep -qF "$VTAB_MARKER_CLASS" "$JS_FILE" && JS_DONE=1
+
+if [[ $CSS_DONE -eq 1 && $JS_DONE -eq 1 ]]; then
+  log "already patched (css=${TAB_FONT_SIZE}px, vtab=${VTAB_FONT_SIZE}px) — no-op"
   exit 0
 fi
 
@@ -83,10 +130,13 @@ if [[ ! -f "$BACKUP" ]]; then
   log "backed up original asar -> $BACKUP"
 fi
 
-# --- patch -----------------------------------------------------------------
+CHANGED=0
+
+# --- patch CSS: top tab bar (.tab .name font-size) -------------------------
 # Replace ONLY the `.tab .name` rule's font-size: 11px. Scoped regex so we
 # don't touch the other ~10 unrelated `font-size: 11px` rules in the bundle.
-if ! python3 - "$CSS_FILE" "$TAB_FONT_SIZE" "$MARKER" <<'PY'
+if [[ $CSS_DONE -eq 0 ]]; then
+  if python3 - "$CSS_FILE" "$TAB_FONT_SIZE" "$CSS_MARKER" <<'PY'
 import re, sys
 path, size, marker = sys.argv[1], sys.argv[2], sys.argv[3]
 css = open(path).read()
@@ -98,8 +148,51 @@ if n != 1:
 open(path, 'w').write(new)
 print(f"patched 1 occurrence -> {size}px")
 PY
-then
-  log "ERROR: python patch step failed"
+  then
+    log "patched CSS .tab .name -> ${TAB_FONT_SIZE}px"
+    CHANGED=1
+  else
+    log "ERROR: CSS patch step failed"
+    exit 0
+  fi
+else
+  log "CSS already patched — skipping"
+fi
+
+# --- patch JS: left sidebar VTabBar item (text-xs -> larger class) ---------
+# The vertical tab bar (app:tabbar = "left") renders each tab as a div with
+# Tailwind classes including `text-xs` (12px). The label child inherits it.
+# We replace `text-xs` with a larger standard class in that exact className
+# string and append a marker class for idempotency. The marker class is an
+# unknown Tailwind class — harmless, just a detection tag.
+if [[ $JS_DONE -eq 0 ]]; then
+  if python3 - "$JS_FILE" "$VTAB_TW_CLASS" "$VTAB_MARKER_CLASS" <<'PY'
+import sys
+path, tw_class, marker_class = sys.argv[1], sys.argv[2], sys.argv[3]
+# The exact VTabBar item className string (unique in the JS bundle).
+old = "group relative flex h-9 w-full shrink-0 cursor-pointer items-center pl-3 text-xs transition-colors select-none"
+new = old.replace(" text-xs ", f" {tw_class} ") + " " + marker_class
+js = open(path).read()
+n = js.count(old)
+if n != 1:
+    print(f'ERROR: expected 1 match of vtab className, found {n}', file=sys.stderr)
+    sys.exit(1)
+open(path, 'w').write(js.replace(old, new, 1))
+print(f"patched vtab className: text-xs -> {tw_class} (+ marker {marker_class})")
+PY
+  then
+    log "patched JS vtab className: text-xs -> $VTAB_TW_CLASS"
+    CHANGED=1
+  else
+    log "ERROR: JS vtab patch step failed"
+    exit 0
+  fi
+else
+  log "JS vtab already patched — skipping"
+fi
+
+if [[ $CHANGED -eq 0 ]]; then
+  log "no changes needed — no-op"
   exit 0
 fi
 
@@ -117,10 +210,16 @@ if [[ ! -f "$WORK_DIR/app.asar.new" ]]; then
   exit 0
 fi
 
-# Sanity: marker must be present in the repacked asar.
+# Sanity: markers must be present in the repacked asar.
 "${ASAR_BIN[@]}" extract "$WORK_DIR/app.asar.new" "$WORK_DIR/verify" 2>/dev/null
-if ! grep -qF "$MARKER" "$WORK_DIR/verify/dist/frontend/assets/$(basename "$CSS_REL")"; then
-  log "ERROR: repacked asar missing marker — aborting without replacing"
+VERIFY_CSS="$WORK_DIR/verify/dist/frontend/assets/$(basename "$CSS_REL")"
+VERIFY_JS="$WORK_DIR/verify/dist/frontend/assets/$JS_BASENAME"
+if [[ $CSS_DONE -eq 0 ]] && ! grep -qF "$CSS_MARKER" "$VERIFY_CSS"; then
+  log "ERROR: repacked asar missing CSS marker — aborting without replacing"
+  exit 0
+fi
+if [[ $JS_DONE -eq 0 ]] && ! grep -qF "$VTAB_MARKER_CLASS" "$VERIFY_JS"; then
+  log "ERROR: repacked asar missing JS vtab marker — aborting without replacing"
   exit 0
 fi
 
@@ -132,4 +231,4 @@ fi
 # picks up the patched content.
 log "replacing asar (cp)"
 cp "$WORK_DIR/app.asar.new" "$ASAR"
-log "patched .tab .name -> ${TAB_FONT_SIZE}px; takes effect on next Wave launch"
+log "patched: top tabs=${TAB_FONT_SIZE}px, vtab=${VTAB_FONT_SIZE}px ($VTAB_TW_CLASS); takes effect on next Wave launch"
