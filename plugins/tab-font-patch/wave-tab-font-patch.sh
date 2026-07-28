@@ -48,6 +48,17 @@ fi
 
 ASAR_BIN=(npx --yes @electron/asar)
 MARKER="/* wave-tab-font-patch:${TAB_FONT_SIZE}px */"
+UNPACK_DIR_PATH="$WAVE_APP_PATH/Contents/Resources/app.asar.unpacked"
+
+# --- ensure native binaries are executable ---------------------------------
+# @electron/asar extract does NOT preserve executable bits, and a prior version
+# of this script once replaced the unpacked dir with one extracted by asar
+# (which stripped +x), causing Wave to fail with EACCES on wavesrv.arm64.
+# This script no longer touches the unpacked dir, but we defensively chmod
+# the binaries on every run in case a Wave update or other tool changed them.
+if [[ -d "$UNPACK_DIR_PATH/dist/bin" ]]; then
+  chmod +x "$UNPACK_DIR_PATH/dist/bin/"* 2>/dev/null || true
+fi
 
 # --- extract ---------------------------------------------------------------
 log "extracting asar"
