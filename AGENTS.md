@@ -81,3 +81,18 @@ fi
 ```
 
 Key invariants learned: repack with `--unpack "{dist/bin/*,dist/schema/*}"` or native binaries get packed in and Wave breaks; use `cp` not `mv` to replace the asar (running Wave has it memory-mapped, `mv` fails with "Operation not permitted"); only patch the `.tab .name` rule — there are ~10 other unrelated `font-size: 11px` rules in the same CSS bundle; **never replace `app.asar.unpacked/` with an asar-extracted copy** — `@electron/asar extract` does not preserve executable bits, so `wavesrv.arm64` and `wsh-*` lose `+x` and Wave fails with `EACCES` on spawn. The patcher leaves the unpacked dir untouched and defensively `chmod +x`s the binaries on every run. The main JS bundle must be located via `index.html`'s `<script src>` — there are multiple `index-*.js` files in the assets dir (main bundle + tiny chunks), so `find | head -1` picks the wrong one. The JS patch targets an exact className string in the minified bundle, so a future Wave version that changes the `VTabBar` item's class list will cause the JS patch to fail (script logs an error and exits without replacing the asar); the CSS patch is more resilient since it uses a scoped regex. See `plugins/tab-font-patch/README.md` for full details.
+
+### Open links in Safari (2026-07-28)
+Wave has no "which browser" setting — its `web:` keys are `defaultsearch`, `defaulturl`, `hidenav`, `openlinksinternally`, `partition`, `useragenttype`, `zoom`. External links go through Electron's `shell.openExternal(url)`, which always defers to the macOS default handler (Chrome here, kept deliberately for non-Horizon work).
+
+Two changes make clicked links open in Safari:
+
+1. `~/.config/waveterm/settings.json` → `"web:openlinksinternally": false` (was `true`, which routed links into Wave's internal browser so they never reached `openExternal`).
+2. `plugins/safari-links-patch/wave-safari-links-patch.sh`, installed to `~/.config/waveterm/patch/`, injects a shim after the electron imports in `dist/main/index.js` wrapping `shell.openExternal` to spawn `open -a Safari <url>` for http(s) URLs on macOS. `file://`/`mailto:`/non-macOS fall through to the original. `shell` (named import) and `electron.shell` are the same object, so one wrap covers all seven call sites. `BROWSER_APP` env var targets a different browser.
+
+Two repack traps cost a couple of restore-and-retry cycles here, both now guarded in the script (it verifies the header and refuses to install if either regresses):
+
+- `--unpack "{dist/bin/*,dist/schema/*}"` is required — `--unpack-dir "{dist/bin,dist/schema}"` leaves `dist/schema/*` packed into the asar while the files still sit in `app.asar.unpacked/` on disk.
+- The `--unpack` glob is evaluated **relative to CWD**. Packing an absolute source path (`asar pack "$WORK/app" out.asar --unpack ...`) matches nothing and packs the native binaries in, so Wave fails to spawn `wavesrv`. `cd` into the extracted tree and pack `.` — which is what tab-font-patch already did, and why it never hit this.
+
+Ordering note: the two asar patches compose. Restore from `app.asar.orig` and re-run tab-font-patch then safari-links-patch to rebuild both from pristine.
