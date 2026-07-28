@@ -61,3 +61,18 @@ precmd() { vcs_info }
 zstyle ':vcs_info:git:*' formats ' %F{242}%b%f'
 PROMPT='%F{cyan}%1~%f${vcs_info_msg_0_} %(?.%F{green}.%F{red})%#%f '
 ```
+
+### Tab font size patch (2026-07-27)
+Wave hardcodes the tab-bar label at `font-size: 11px` in `tab.scss` inside the bundled `app.asar` — no `tab:fontsize` config key exists (upstream request: [wavetermdev/waveterm#3203](https://github.com/wavetermdev/waveterm/issues/3203)). The patcher at `plugins/tab-font-patch/wave-tab-font-patch.sh` bumps `.tab .name` to 18px by repacking the asar, and re-applies itself after Wave auto-updates.
+
+Installed to `~/.config/waveterm/patch/wave-tab-font-patch.sh`; original asar backed up to `app.asar.orig`. Auto-reapply lives in `~/.zshrc` (not a LaunchAgent — macOS Sequoia TCC blocks LaunchAgents from writing to another app's bundle, but an interactive terminal can). Every new shell does an instant `grep` for the marker `wave-tab-font-patch:18px` in the asar; if missing, the patcher runs in the background.
+
+```zsh
+# Auto-reapply Wave Terminal tab font patch
+if [[ -f /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar ]] && \
+   ! grep -q "wave-tab-font-patch:18px" /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar 2>/dev/null; then
+  ( bash /Users/jcallicott/.config/waveterm/patch/wave-tab-font-patch.sh >/dev/null 2>&1 & )
+fi
+```
+
+Key invariants learned: repack with `--unpack "{dist/bin/*,dist/schema/*}"` or native binaries get packed in and Wave breaks; use `cp` not `mv` to replace the asar (running Wave has it memory-mapped, `mv` fails with "Operation not permitted"); only patch the `.tab .name` rule — there are ~10 other unrelated `font-size: 11px` rules in the same CSS bundle. See `plugins/tab-font-patch/README.md` for full details.
