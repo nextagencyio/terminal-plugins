@@ -17,7 +17,8 @@ Badges are **pid-linked** to the agent process, so they survive Wave's clear-on-
 
 - Wave Terminal ≥ 0.14.2 (`wsh badge` support)
 - `jq` (for payload context; degrades gracefully without it)
-- macOS notifications allowed for Wave (fires on first `wsh notify`; check Focus/DND if banners don't appear)
+- macOS: notifications allowed for Wave (fires on first `wsh notify`; check Focus/DND if banners don't appear)
+- Linux: `wsh` on `PATH`, or Wave installed at `/opt/Wave` (`.deb`/`.rpm`) or `~/Applications/wave-terminal` (extracted AppImage) so the bundled `wsh` can be found
 
 ## Install — Claude Code
 

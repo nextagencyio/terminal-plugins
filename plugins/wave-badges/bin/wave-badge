@@ -9,12 +9,32 @@ INPUT=""
 
 [ -n "$WAVETERM_BLOCKID" ] || exit 0
 
+# wsh is normally on PATH inside a Wave block. When it isn't, fall back to the
+# copy bundled with the app — the binaries are named wsh-<version>-<os>.<arch>,
+# so resolve the current platform rather than assuming Apple Silicon.
 WSH=$(command -v wsh 2>/dev/null)
 if [ -z "$WSH" ]; then
-    WSH=$(ls -t "$HOME"/Applications/Wave.app/Contents/Resources/app.asar.unpacked/dist/bin/wsh-*-darwin.arm64 \
-                /Applications/Wave.app/Contents/Resources/app.asar.unpacked/dist/bin/wsh-*-darwin.arm64 2>/dev/null | head -1)
+    case "$(uname -s)" in
+        Darwin) WSH_OS=darwin ;;
+        Linux)  WSH_OS=linux ;;
+        *)      WSH_OS="" ;;
+    esac
+    case "$(uname -m)" in
+        arm64|aarch64) WSH_ARCH=arm64 ;;
+        x86_64|amd64)  WSH_ARCH=x64 ;;
+        *)             WSH_ARCH="" ;;
+    esac
+    if [ -n "$WSH_OS" ] && [ -n "$WSH_ARCH" ]; then
+        WSH=$(ls -t \
+            "$HOME"/.waveterm/bin/wsh \
+            "$HOME"/Applications/Wave.app/Contents/Resources/app.asar.unpacked/dist/bin/wsh-*-"$WSH_OS"."$WSH_ARCH" \
+            /Applications/Wave.app/Contents/Resources/app.asar.unpacked/dist/bin/wsh-*-"$WSH_OS"."$WSH_ARCH" \
+            /opt/Wave/resources/app.asar.unpacked/dist/bin/wsh-*-"$WSH_OS"."$WSH_ARCH" \
+            "$HOME"/Applications/wave-terminal/resources/app.asar.unpacked/dist/bin/wsh-*-"$WSH_OS"."$WSH_ARCH" \
+            2>/dev/null | head -1)
+    fi
 fi
-[ -n "$WSH" ] || exit 0
+[ -x "$WSH" ] || exit 0
 
 AGENT="${1:-Agent}"
 STATE="$2"

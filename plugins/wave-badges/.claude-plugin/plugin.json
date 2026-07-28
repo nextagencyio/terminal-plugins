@@ -5,6 +5,5 @@
   "author": {
     "name": "NextAgency",
     "url": "https://github.com/nextagencyio"
-  },
-  "hooks": "./hooks/hooks.json"
+  }
 }
