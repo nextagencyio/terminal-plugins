@@ -2,7 +2,7 @@
 
 Wave Terminal shows a "waiting" / running indicator on tabs as a Font Awesome icon with the `fa-spin` modifier — a continuous 360° rotation at 2s/revolution. It's the same spinner used everywhere in the app, but on a tab you stare at for long runs (a build, an agent session) it gets visually tiring.
 
-This patcher swaps that rotation for a **subtle opacity pulse** (0.4 ↔ 1.0 over 1.8s, ease-in-out) on **tab badges only**. Other spinners in the app (block headers, secret dialogs, app lists, etc.) are untouched.
+This patcher swaps that rotation for a **pulsing colored dot** — a small solid circle that pulses its color (opacity 0.25 ↔ 1.0 over 1.8s, ease-in-out) on **tab badges only**. The FA spinner glyph is hidden entirely and replaced with a CSS circle dot, so it works regardless of which spinner icon Wave's backend chose. Other spinners in the app (block headers, secret dialogs, app lists, etc.) are untouched.
 
 ## Install
 
@@ -50,7 +50,7 @@ The tab "waiting" spinner is a badge icon routed through `TabBadges` → `makeIc
 |---|---|---|
 | `WAVE_APP_PATH` | `/Users/jcallicott/Applications/Wave.app` | Wave app bundle path |
 | `PULSE_DURATION` | `1.8s` | Pulse animation duration |
-| `PULSE_MIN_OPACITY` | `0.4` | Minimum opacity at pulse trough (0–1) |
+| `PULSE_MIN_OPACITY` | `0.25` | Minimum opacity at pulse trough (0–1) |
 
 To change the pulse feel: edit the env vars (or the defaults at the top of the script), restore from `app.asar.orig`, and run the script once manually (the patcher won't re-patch an already-patched asar — it detects markers and no-ops).
 
