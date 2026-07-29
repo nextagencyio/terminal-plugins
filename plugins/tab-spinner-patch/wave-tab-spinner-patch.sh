@@ -105,12 +105,10 @@ fi
 
 CHANGED=0
 
-# --- patch CSS: turn spinning badge into a pulsing colored dot -------------
-# Instead of pulsing the opacity of a spinner icon (which looks like a broken
-# partial circle when not rotating), we hide the FA icon glyph entirely and
-# render the <i> as a small solid circle (dot) that pulses its color via
-# opacity. This works regardless of which spinner icon Wave's backend chose
-# (circle-notch, spinner, gear, etc.) — the CSS overrides them all.
+# --- patch CSS: color-pulse the original spinner icon (no rotation) --------
+# Keep Wave's original spinner glyph visible (don't hide it — hiding it left
+# an empty box). Just swap fa-spin's rotation for a gentle opacity/color
+# pulse so the icon fades in/out instead of spinning.
 if [[ $CSS_DONE -eq 0 ]]; then
   python3 - "$CSS_FILE" "$CSS_MARKER" "$PULSE_DURATION" "$PULSE_MIN_OPACITY" <<'PY'
 import sys
@@ -118,23 +116,15 @@ path, marker, duration, min_opacity = sys.argv[1], sys.argv[2], sys.argv[3], sys
 css = open(path).read()
 block = (
     f"\n{marker}\n"
-    f".wave-tab-pulse{{"
-    f"display:inline-block !important;"
-    f"width:7px !important;height:7px !important;"
-    f"min-width:7px !important;"
-    f"border-radius:50% !important;"
-    f"background-color:currentColor !important;"
-    f"-webkit-animation:wave-tab-pulse {duration} ease-in-out infinite;"
-    f"animation:wave-tab-pulse {duration} ease-in-out infinite"
-    f"}}\n"
-    f".wave-tab-pulse::before{{content:'' !important}}\n"
+    f".wave-tab-pulse{{-webkit-animation:wave-tab-pulse {duration} ease-in-out infinite;"
+    f"animation:wave-tab-pulse {duration} ease-in-out infinite}}\n"
     f"@-webkit-keyframes wave-tab-pulse{{0%,100%{{-webkit-opacity:{min_opacity};opacity:{min_opacity}}}50%{{-webkit-opacity:1;opacity:1}}}}\n"
     f"@keyframes wave-tab-pulse{{0%,100%{{opacity:{min_opacity}}}50%{{opacity:1}}}}\n"
 )
 open(path, 'w').write(css + block)
-print("appended pulse dot keyframes")
+print("appended color-pulse keyframes")
 PY
-  log "patched CSS: .wave-tab-pulse -> solid dot + color pulse (${PULSE_DURATION}, min opacity ${PULSE_MIN_OPACITY})"
+  log "patched CSS: .wave-tab-pulse -> color pulse on original icon (${PULSE_DURATION}, min opacity ${PULSE_MIN_OPACITY})"
   CHANGED=1
 else
   log "CSS already patched — skipping"

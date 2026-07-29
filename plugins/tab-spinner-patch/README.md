@@ -2,7 +2,7 @@
 
 Wave Terminal shows a "waiting" / running indicator on tabs as a Font Awesome icon with the `fa-spin` modifier — a continuous 360° rotation at 2s/revolution. It's the same spinner used everywhere in the app, but on a tab you stare at for long runs (a build, an agent session) it gets visually tiring.
 
-This patcher swaps that rotation for a **pulsing colored dot** — a small solid circle that pulses its color (opacity 0.25 ↔ 1.0 over 1.8s, ease-in-out) on **tab badges only**. The FA spinner glyph is hidden entirely and replaced with a CSS circle dot, so it works regardless of which spinner icon Wave's backend chose. Other spinners in the app (block headers, secret dialogs, app lists, etc.) are untouched.
+This patcher keeps Wave's original spinner icon glyph but swaps the `fa-spin` rotation for a **color pulse** (opacity 0.25 ↔ 1.0 over 1.8s, ease-in-out) on **tab badges only**. The icon stays visible and fades in/out instead of spinning. Other spinners in the app (block headers, secret dialogs, app lists, etc.) are untouched.
 
 ## Install
 
