@@ -23,7 +23,7 @@
 # Config:
 #   TAB_FONT_SIZE  (default 18)  — top tab bar, in px
 #   VTAB_FONT_SIZE (default = TAB_FONT_SIZE) — left sidebar tabs, in px
-#   WAVE_APP_PATH  (default /Users/jcallicott/Applications/Wave.app)
+#   WAVE_APP_PATH  (default platform-specific — see below)
 #
 # The left sidebar uses Tailwind utility classes (text-xs/text-sm/text-base/
 # text-lg/text-xl = 12/14/16/18/20px). Non-standard sizes fall back to the
@@ -34,8 +34,21 @@ set -uo pipefail
 
 TAB_FONT_SIZE="${TAB_FONT_SIZE:-18}"
 VTAB_FONT_SIZE="${VTAB_FONT_SIZE:-$TAB_FONT_SIZE}"
-WAVE_APP_PATH="${WAVE_APP_PATH:-/Users/jcallicott/Applications/Wave.app}"
-ASAR="$WAVE_APP_PATH/Contents/Resources/app.asar"
+# Badge icon size on the left sidebar. Wave hardcodes [&_i]:text-[10px] on
+# the VTab TabBadges className, making the spinner/check/bell icon 10px —
+# nearly invisible at that size. This CSS override enlarges it. 14px fits
+# in the 16px badge container without clipping.
+VTAB_BADGE_ICON_SIZE="${VTAB_BADGE_ICON_SIZE:-14}"
+
+# Platform-specific defaults: macOS uses Wave.app bundle, Linux uses the
+# AppImage-style directory. WAVE_APP_PATH can be overridden via env.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  WAVE_APP_PATH="${WAVE_APP_PATH:-/Users/jcallicott/Applications/Wave.app}"
+  ASAR="$WAVE_APP_PATH/Contents/Resources/app.asar"
+else
+  WAVE_APP_PATH="${WAVE_APP_PATH:-$HOME/Applications/wave-terminal}"
+  ASAR="$WAVE_APP_PATH/resources/app.asar"
+fi
 BACKUP="$ASAR.orig"
 PATCH_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_FILE="$PATCH_DIR/patch.log"
@@ -79,7 +92,7 @@ ASAR_BIN=(npx --yes @electron/asar)
 CSS_MARKER="/* wave-tab-font-patch:${TAB_FONT_SIZE}px */"
 VTAB_TW_CLASS="$(px_to_tw_class "$VTAB_FONT_SIZE")"
 VTAB_MARKER_CLASS="wave-tab-font-patch-vtab-${VTAB_FONT_SIZE}px"
-UNPACK_DIR_PATH="$WAVE_APP_PATH/Contents/Resources/app.asar.unpacked"
+UNPACK_DIR_PATH="${ASAR%.asar}.asar.unpacked"
 
 # --- ensure native binaries are executable ---------------------------------
 # @electron/asar extract does NOT preserve executable bits, and a prior version
@@ -159,6 +172,26 @@ else
   log "CSS already patched — skipping"
 fi
 
+# --- patch CSS: left sidebar badge icon size override ----------------------
+# Wave's VTab TabBadges className includes [&_i]:text-[10px], which forces
+# the badge icon (spinner/check/bell) to 10px — nearly invisible at that
+# size. We append a CSS rule that overrides it using the vtab marker class
+# as a selector.
+# The marker class (wave-tab-font-patch-vtab-<N>px) is on every VTab item,
+# so this targets only left-sidebar tabs, not the top tab bar. Appended to
+# the end of the CSS file so it wins the cascade over the [&_i]:text-[10px]
+# rule (same specificity 0,1,1 — later wins).
+BADGE_CSS_MARKER="/* wave-tab-font-patch:badge-icon-${VTAB_BADGE_ICON_SIZE}px */"
+if ! grep -qF "$BADGE_CSS_MARKER" "$CSS_FILE"; then
+  cat >> "$CSS_FILE" <<CSS
+.wave-tab-font-patch-vtab-${VTAB_FONT_SIZE}px i{font-size:${VTAB_BADGE_ICON_SIZE}px!important}${BADGE_CSS_MARKER}
+CSS
+  log "patched CSS vtab badge icon -> ${VTAB_BADGE_ICON_SIZE}px"
+  CHANGED=1
+else
+  log "CSS badge icon already patched — skipping"
+fi
+
 # --- patch JS: left sidebar VTabBar item (text-xs -> larger class) ---------
 # The vertical tab bar (app:tabbar = "left") renders each tab as a div with
 # Tailwind classes including `text-xs` (12px). The label child inherits it.
@@ -222,6 +255,10 @@ if [[ $JS_DONE -eq 0 ]] && ! grep -qF "$VTAB_MARKER_CLASS" "$VERIFY_JS"; then
   log "ERROR: repacked asar missing JS vtab marker — aborting without replacing"
   exit 0
 fi
+if ! grep -qF "$BADGE_CSS_MARKER" "$VERIFY_CSS"; then
+  log "ERROR: repacked asar missing badge icon CSS marker — aborting without replacing"
+  exit 0
+fi
 
 # --- replace ---------------------------------------------------------------
 # Use `cp` (not `mv`) so this works even while Wave is running. `mv` (rename)
@@ -231,4 +268,4 @@ fi
 # picks up the patched content.
 log "replacing asar (cp)"
 cp "$WORK_DIR/app.asar.new" "$ASAR"
-log "patched: top tabs=${TAB_FONT_SIZE}px, vtab=${VTAB_FONT_SIZE}px ($VTAB_TW_CLASS); takes effect on next Wave launch"
+log "patched: top tabs=${TAB_FONT_SIZE}px, vtab=${VTAB_FONT_SIZE}px ($VTAB_TW_CLASS), badge icon=${VTAB_BADGE_ICON_SIZE}px; takes effect on next Wave launch"

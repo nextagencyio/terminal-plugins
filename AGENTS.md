@@ -17,7 +17,7 @@ Published three ways from one repo:
 - Commits and pushes are attributed to **nextagencyio** (`jrcallicott@gmail.com`), never a work account. The local clone has repo-local `user.name`/`user.email` and a credential helper that shells to `gh auth token -u nextagencyio`.
 - The canonical badge script is `plugins/wave-badges/bin/wave-badge`; `~/.local/bin/wave-badge` is a symlink to it, so Devin and opencode pick up edits immediately. Claude Code installs the plugin from GitHub, so it only sees **pushed** changes after a session restart or `/plugin` update.
 - The script must stay a silent no-op outside Wave (`$WAVETERM_BLOCKID` guard, `exit 0` everywhere) — it lives in configs shared across terminals.
-- Wave badge invariants (learned from Wave source): FontAwesome icons only (`+spin/+beat/+fade` suffixes); Wave never replaces a badge with a lower-priority one, so always clear-before-set; focus auto-clear skips pid-linked badges (`--pid`), which is how badges persist until session exit.
+- Wave badge invariants (learned from Wave source): FontAwesome icons only (`+spin/+beat/+fade` suffixes); Wave never replaces a badge with a lower-priority one, so always clear-before-set; focus auto-clear skips pid-linked badges (`--pid`), which is how badges persist until session exit. **Clear-then-set race condition** (2026-07-29): `wsh badge --clear` and the immediately following `wsh badge set` are separate RPC calls whose frontend events can arrive out of order (clear event after set event), silently wiping the new badge — the spinner disappears even though `wsh badge` reports "badge set". A `sleep 0.15` between clear and set fixes it; the delay is imperceptible in practice. This was the root cause of the "waiting icon not showing" bug.
 - Personal machine preferences (browser choice, paths) never get hardcoded into shared scripts — use env vars or gitignored local config.
 
 ## Machine setup log (Jay's Mac)
@@ -61,6 +61,7 @@ Audible alert when an agent needs attention, alongside the visual badge:
 - **Claude Code** (personal settings, not the plugin — sound choice is a machine preference): `~/.claude/settings.json` has `"preferredNotifChannel": "auto"` (OSC 9/777 desktop notifications, works in Ghostty/Wave) plus an async `Notification` hook running the same `afplay` command.
 
 
+### Shell QoL — macOS/zsh (2026-07-27)
 Warp-style input experience at the shell level (works in Wave and any terminal):
 
 ```sh
@@ -78,6 +79,36 @@ source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 ```
 
 Gives inline ghost-text history suggestions (→ to accept), fuzzy Ctrl-R history search, and live command syntax highlighting. Considered but not installed: `inshellisense` (IDE-style dropdown completions) — add here if adopted.
+
+### Shell QoL — Linux/bash (2026-07-29)
+Same Warp-style input experience on Linux/bash, using [ble.sh](https://github.com/akinomyoga/ble.sh) (Bash Line Editor) + fzf. ble.sh is a single project that covers both zsh-autosuggestions (inline ghost-text) AND zsh-syntax-highlighting (live syntax highlighting) for bash — it replaces GNU Readline entirely. fzf adds fuzzy Ctrl-R history search and fuzzy Tab completion. No sudo needed — both install to `~/.local`.
+
+```sh
+# fzf: download prebuilt binary (no sudo)
+ver=$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | grep -m1 tag_name | cut -d\" -f4)
+curl -fsSL -o /tmp/fzf.tar.gz "https://github.com/junegunn/fzf/releases/download/${ver}/fzf-${ver#v}-linux_amd64.tar.gz"
+tar xzf /tmp/fzf.tar.gz -C /tmp && install -Dm755 /tmp/fzf ~/.local/bin/fzf
+
+# ble.sh: nightly prebuilt tarball (no build step, no gawk needed)
+curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz | tar xJf - -C /tmp
+bash /tmp/ble-nightly/ble.sh --install ~/.local/share
+```
+
+Appended to `~/.bashrc` — ble.sh uses a `--noattach`/`ble-attach` split: source early so it initializes, attach at the end so it takes over readline only after aliases/prompt are set. fzf integration uses `ble-import -d` (delayed load — fzf settings load in background after the prompt is shown, so startup stays fast). Both must be inside the interactive guard (`case $- in *i*) ;; *) return;; esac`):
+
+```bash
+# After the interactive guard, early in .bashrc:
+source -- ~/.local/share/blesh/ble.sh --noattach
+
+# ... rest of .bashrc (aliases, prompt, etc.) ...
+
+# Near the end, before any exec-based autostart:
+ble-import -d integration/fzf-completion
+ble-import -d integration/fzf-key-bindings
+[[ ${BLE_VERSION-} ]] && ble-attach
+```
+
+Key invariants learned: ble.sh requires a real TTY for both stdin AND stdout — it bails with "not intended to be used with --noediting" if stdin isn't a terminal, and silently fails to load if stdout is redirected to a file. This makes it impossible to test from a non-PTY shell (e.g. `bash -c`, devin's exec tool); use `script -qfc 'bash -i'` or a real terminal. ble.sh must be sourced during initial bash startup (natural `.bashrc` load), not re-sourced from an already-running interactive shell — re-sourcing fails silently (`BLE_VERSION` stays unset, `ble-import` not found). The build-from-source path requires `gawk` (GNU awk); this Ubuntu 24.04 box only has `mawk`, so the prebuilt nightly tarball is used instead. fzf release asset filenames drop the `v` prefix (`fzf-0.74.1-linux_amd64.tar.gz`, not `fzf-v0.74.1-...`).
 
 ### Minimal prompt (2026-07-27)
 Replaces the default `user@hostname dir %` with `dir branch %` — cwd in cyan, git branch in gray, `%` green normally / red after a failed command. Appended to `~/.zshrc`:
@@ -98,6 +129,8 @@ Wave hardcodes tab-bar fonts at small sizes inside the bundled `app.asar` — no
 - **Left sidebar** — Tailwind `text-xs` (12px) class on the `VTabBar` item div in the JS bundle (label child inherits it)
 
 The patcher at `plugins/tab-font-patch/wave-tab-font-patch.sh` bumps **both** to 18px by repacking the asar, and re-applies itself after Wave auto-updates. The CSS patch uses a scoped regex on `.tab .name`; the JS patch replaces `text-xs` with `text-lg` (Tailwind: 12→14→16→18→20px for `text-xs/sm/base/lg/xl`; arbitrary values like `text-[17px]` aren't available in the pre-built bundle) in the exact `VTabBar` item className string and appends a marker class `wave-tab-font-patch-vtab-18px` for idempotency.
+
+**Badge icon size override (2026-07-29):** Wave's VTab `TabBadges` className includes `[&_i]:text-[10px]`, which forces the badge icon (spinner/check/bell) to 10px on the left sidebar — nearly invisible at that size. The patcher now also appends a CSS rule `.wave-tab-font-patch-vtab-18px i{font-size:14px!important}` to the CSS bundle, overriding the 10px to 14px. Uses the vtab marker class as a selector so it only affects left-sidebar tabs, not the top tab bar. Appended to the end of the CSS file so it wins the cascade (same specificity 0,1,1 as the `[&_i]:text-[10px]` rule — later wins; `!important` is belt-and-suspenders). Config: `VTAB_BADGE_ICON_SIZE` (default `14`). 14px fits in the 16px badge container (`h-[16px]`) without clipping.
 
 Installed to `~/.config/waveterm/patch/wave-tab-font-patch.sh`; original asar backed up to `app.asar.orig`. Auto-reapply lives in `~/.zshrc` (not a LaunchAgent — macOS Sequoia TCC blocks LaunchAgents from writing to another app's bundle, but an interactive terminal can). Every new shell does an instant `grep` for the marker `wave-tab-font-patch:18px` in the asar; if missing, the patcher runs in the background.
 
@@ -126,9 +159,26 @@ Two repack traps cost a couple of restore-and-retry cycles here, both now guarde
 
 Ordering note: the two asar patches compose. Restore from `app.asar.orig` and re-run tab-font-patch then safari-links-patch to rebuild both from pristine.
 
-### Tab spinner → color pulse (2026-07-29)
-Wave's tab "waiting" / running indicator is a Font Awesome badge icon with the `fa-spin` modifier (continuous 360° rotation at 2s/rev) — visually tiring on tabs you stare at for long runs. `plugins/tab-spinner-patch/wave-tab-spinner-patch.sh`, installed to `~/.config/waveterm/patch/`, keeps Wave's original spinner glyph but swaps the `fa-spin` rotation for a **color pulse** (opacity 0.25 ↔ 1.0 over 1.8s, ease-in-out) on **tab badges only**. The icon stays visible and fades in/out instead of spinning. (An earlier attempt hid the glyph and rendered a CSS dot, but that left an empty box — the FA `::before` glyph is what actually paints the icon, so it must be kept.)
+## Machine setup log (Jay's Linux box — Ubuntu 24.04, 2026-07-29)
 
-The tab waiting spinner is a badge routed through the shared `TabBadges` component (the single render path for BOTH the top tab bar and the left sidebar vtab), which calls `makeIconClass(firstBadge.icon, true, { defaultIcon: "circle-small" }) + " text-[12px]"` to build the `<i>` className. `makeIconClass` appends `fa-spin` when the badge icon string has a `+spin` modifier. The JS patch appends `.replace("fa-spin", "wave-tab-pulse")` to that one expression, so a single patch site covers both tab placements. The CSS patch appends `.wave-tab-pulse` (opacity animation) + `@keyframes wave-tab-pulse` (no rotation). Other spinners in the app (block headers, secret dialogs, app lists) use different render paths that don't go through `TabBadges`' firstBadge `<i>`, so they keep their normal rotation — the change is scoped to the thing that was actually annoying.
+Parallel setup for the Linux workstation. Bash, not zsh. All asar patches and the badge symlink are identical to the Mac; differences are shell-specific.
 
-Auto-reapply added to the same `~/.zshrc` block as tab-font-patch (grep for `wave-tab-spinner-patch` marker in the asar; run in background if missing). The three asar patches (tab-font, safari-links, tab-spinner) compose; rebuild all from pristine by restoring `app.asar.orig` and running tab-font-patch → safari-links-patch → tab-spinner-patch. Config: `PULSE_DURATION` (default `1.8s`), `PULSE_MIN_OPACITY` (default `0.25`).
+### Wave Terminal
+- Installed as AppImage extracted to `~/Applications/wave-terminal` (not `/opt/Wave` — the `wave-badges` README's `wsh` finder checks both). `wsh` found via `~/.local/share/waveterm/bin` on PATH.
+- asar at `~/Applications/wave-terminal/resources/app.asar`; original backed up to `app.asar.orig`.
+
+### asar patches
+- tab-font-patch: installed to `~/.config/waveterm/patch/`, byte-identical to the repo script. Applied to the asar (markers `wave-tab-font-patch:18px`, `wave-tab-font-patch-vtab-18px`, `badge-icon-14px` present).
+- safari-links-patch: **not applied** — it's macOS-only (`open -a Safari`); on Linux it falls through to the original `shell.openExternal`, so there's nothing to patch. The script is still installed to `~/.config/waveterm/patch/` for repo parity but never run.
+
+### Auto-reapply (bash, not zsh)
+In `~/.bashrc` (not `~/.zshrc` — this is a bash box). Same grep-marker-then-background-run pattern as the Mac, but wrapped in `[ -f "$WAVE_ASAR" ]` with `WAVE_ASAR="$HOME/Applications/wave-terminal/resources/app.asar"`. Only checks the tab-font marker (safari-links skipped on Linux).
+
+### Devin autostart in every Wave tab (2026-07-29, updated 2026-07-29)
+Wave spawns Devin directly as the tab shell — no bash, no prompt flash. Two pieces:
+
+**`~/.config/waveterm/devin-launcher.sh`** — a tiny wrapper script set as `term:localshellpath` in `~/.config/waveterm/settings.json`. It reaps the asar patch check (moved here from `.bashrc` because Wave no longer spawns bash in new tabs), sets `DEVIN_AUTOSTARTED=1` (belt-and-suspenders recursion guard), and `exec`s devin. Devin is a compiled static binary — it doesn't need Node/nvm/PATH to start. Its exec tool spawns bash, which reads `~/.bashrc` and gets the full env (PATH, API keys, nvm, deno, ble.sh) for the commands it runs.
+
+**`~/.bashrc` fallback guard** — kept in case a Wave-spawned interactive bash somehow bypasses the custom shell path (e.g. a split pane that falls back to bash). Same guard as before: `WAVETERM=1` + interactive `$-` + `DEVIN_AUTOSTARTED` unset → `exec devin -c --permission-mode=dangerous`. Devin's own exec tool spawns non-interactive shells (`$-` = `hBc`) that also inherit `DEVIN_AUTOSTARTED=1`, so there's no recursion.
+
+`devin -c` resumes the most recent session in the current directory (starts a new one if none exists). `exec` replaces the shell — the tab closes when Devin exits. The asar patch auto-reapply moved from `.bashrc` to the launcher script because new Wave tabs no longer run bash; the `.bashrc` copy is kept for non-Wave interactive shells.

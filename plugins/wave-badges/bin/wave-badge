@@ -76,33 +76,38 @@ set_title() {
 
 # Wave only lets a new badge replace a higher-priority one, so every
 # transition clears first — otherwise a bell (20) could never step down
-# to a spinner (5) or check (10).
+# to a spinner (5) or check (10).  A short sleep after each clear is
+# critical: wsh badge --clear and the following wsh badge set are
+# separate RPC calls whose frontend events can arrive out of order
+# (clear after set), silently wiping the new badge.  0.15s is enough
+# for the clear event to be processed without noticeably delaying the
+# state transition.
 case "$STATE" in
     start)
         "$WSH" badge --clear
         set_title
         ;;
     working)
-        "$WSH" badge --clear
+        "$WSH" badge --clear; sleep 0.15
         "$WSH" badge spinner-third+spin --color '#00FFDB' --priority 5 "${PIDFLAG[@]}"
         ;;
     attention)
-        "$WSH" badge --clear
+        "$WSH" badge --clear; sleep 0.15
         "$WSH" badge bell --color yellow --priority 20 --beep "${PIDFLAG[@]}"
         "$WSH" notify "${MSG:-needs your input}${TOOL:+ [$TOOL]}$CTX" -t "$AGENT"
         ;;
     question)
-        "$WSH" badge --clear
+        "$WSH" badge --clear; sleep 0.15
         "$WSH" badge message-question --color '#e0b956' --priority 20 --beep "${PIDFLAG[@]}"
         "$WSH" notify "${MSG:-has a question for you}$CTX" -t "$AGENT"
         ;;
     done)
-        "$WSH" badge --clear
+        "$WSH" badge --clear; sleep 0.15
         "$WSH" badge check --color green --priority 10 "${PIDFLAG[@]}"
         "$WSH" notify "finished its turn$CTX" -t "$AGENT"
         ;;
     error)
-        "$WSH" badge --clear
+        "$WSH" badge --clear; sleep 0.15
         "$WSH" badge triangle-exclamation --color '#FF453A' --priority 15 "${PIDFLAG[@]}"
         "$WSH" notify "${MSG:-hit an error}$CTX" -t "$AGENT"
         ;;
