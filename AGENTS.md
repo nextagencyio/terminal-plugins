@@ -128,16 +128,18 @@ Wave hardcodes tab-bar fonts at small sizes inside the bundled `app.asar` — no
 - **Top tab bar** — CSS rule `.tab .name { font-size: 11px }` in the CSS bundle
 - **Left sidebar** — Tailwind `text-xs` (12px) class on the `VTabBar` item div in the JS bundle (label child inherits it)
 
-The patcher at `plugins/tab-font-patch/wave-tab-font-patch.sh` bumps **both** to 18px by repacking the asar, and re-applies itself after Wave auto-updates. The CSS patch uses a scoped regex on `.tab .name`; the JS patch replaces `text-xs` with `text-lg` (Tailwind: 12→14→16→18→20px for `text-xs/sm/base/lg/xl`; arbitrary values like `text-[17px]` aren't available in the pre-built bundle) in the exact `VTabBar` item className string and appends a marker class `wave-tab-font-patch-vtab-18px` for idempotency.
+The patcher at `plugins/tab-font-patch/wave-tab-font-patch.sh` bumps **both** to 20px by repacking the asar, and re-applies itself after Wave auto-updates. The CSS patch uses a scoped regex on `.tab .name`; the JS patch replaces `text-xs` with `text-xl` (Tailwind: 12→14→16→18→20px for `text-xs/sm/base/lg/xl`; arbitrary values like `text-[17px]` aren't available in the pre-built bundle) in the exact `VTabBar` item className string and appends a marker class `wave-tab-font-patch-vtab-20px` for idempotency.
 
-**Badge icon size override (2026-07-29):** Wave's VTab `TabBadges` className includes `[&_i]:text-[10px]`, which forces the badge icon (spinner/check/bell) to 10px on the left sidebar — nearly invisible at that size. The patcher now also appends a CSS rule `.wave-tab-font-patch-vtab-18px i{font-size:14px!important}` to the CSS bundle, overriding the 10px to 14px. Uses the vtab marker class as a selector so it only affects left-sidebar tabs, not the top tab bar. Appended to the end of the CSS file so it wins the cascade (same specificity 0,1,1 as the `[&_i]:text-[10px]` rule — later wins; `!important` is belt-and-suspenders). Config: `VTAB_BADGE_ICON_SIZE` (default `14`). 14px fits in the 16px badge container (`h-[16px]`) without clipping.
+**Tab pill background (2026-07-31):** The patcher also appends a CSS rule `.tab,.wave-tab-font-patch-vtab-20px{background-color:#000000!important}` so each tab pill gets a flat black background in both placements (top bar `.tab` + left-sidebar VTabBar items). `!important` overrides Wave's hover/active/selected backgrounds so the pill stays black in every state. Config: `TAB_BG_COLOR` (default `#000000`; set to empty string to skip the bg patch).
 
-Installed to `~/.config/waveterm/patch/wave-tab-font-patch.sh`; original asar backed up to `app.asar.orig`. Auto-reapply lives in `~/.zshrc` (not a LaunchAgent — macOS Sequoia TCC blocks LaunchAgents from writing to another app's bundle, but an interactive terminal can). Every new shell does an instant `grep` for the marker `wave-tab-font-patch:18px` in the asar; if missing, the patcher runs in the background.
+**Badge icon size override (2026-07-29):** Wave's VTab `TabBadges` className includes `[&_i]:text-[10px]`, which forces the badge icon (spinner/check/bell) to 10px on the left sidebar — nearly invisible at that size. The patcher now also appends a CSS rule `.wave-tab-font-patch-vtab-20px i{font-size:14px!important}` to the CSS bundle, overriding the 10px to 14px. Uses the vtab marker class as a selector so it only affects left-sidebar tabs, not the top tab bar. Appended to the end of the CSS file so it wins the cascade (same specificity 0,1,1 as the `[&_i]:text-[10px]` rule — later wins; `!important` is belt-and-suspenders). Config: `VTAB_BADGE_ICON_SIZE` (default `14`). 14px fits in the 16px badge container (`h-[16px]`) without clipping.
+
+Installed to `~/.config/waveterm/patch/wave-tab-font-patch.sh`; original asar backed up to `app.asar.orig`. Auto-reapply lives in `~/.zshrc` (not a LaunchAgent — macOS Sequoia TCC blocks LaunchAgents from writing to another app's bundle, but an interactive terminal can). Every new shell does an instant `grep` for the marker `wave-tab-font-patch:20px` in the asar; if missing, the patcher runs in the background.
 
 ```zsh
 # Auto-reapply Wave Terminal tab font patch
 if [[ -f /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar ]] && \
-   ! grep -q "wave-tab-font-patch:18px" /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar 2>/dev/null; then
+   ! grep -q "wave-tab-font-patch:20px" /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar 2>/dev/null; then
   ( bash /Users/jcallicott/.config/waveterm/patch/wave-tab-font-patch.sh >/dev/null 2>&1 & )
 fi
 ```
@@ -168,7 +170,7 @@ Parallel setup for the Linux workstation. Bash, not zsh. All asar patches and th
 - asar at `~/Applications/wave-terminal/resources/app.asar`; original backed up to `app.asar.orig`.
 
 ### asar patches
-- tab-font-patch: installed to `~/.config/waveterm/patch/`, byte-identical to the repo script. Applied to the asar (markers `wave-tab-font-patch:18px`, `wave-tab-font-patch-vtab-18px`, `badge-icon-14px` present).
+- tab-font-patch: installed to `~/.config/waveterm/patch/`, byte-identical to the repo script. Applied to the asar (markers `wave-tab-font-patch:20px`, `wave-tab-font-patch-vtab-20px`, `badge-icon-14px`, `bg-#000000` present).
 - safari-links-patch: **not applied** — it's macOS-only (`open -a Safari`); on Linux it falls through to the original `shell.openExternal`, so there's nothing to patch. The script is still installed to `~/.config/waveterm/patch/` for repo parity but never run.
 
 ### Auto-reapply (bash, not zsh)

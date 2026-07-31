@@ -7,7 +7,7 @@ Wave has two tab placements (`app:tabbar` setting: `"top"` or `"left"`), and the
 - **Top tab bar** — CSS rule `.tab .name { font-size: 11px }` in the CSS bundle
 - **Left sidebar** — Tailwind `text-xs` (12px) class on the `VTabBar` item div in the JS bundle (the label child inherits it)
 
-This patcher bumps **both** to a larger size (default **18px**) by repacking the asar, and re-applies itself automatically after Wave auto-updates overwrite it.
+This patcher bumps **both** to a larger size (default **20px**) and applies a flat black background to each tab pill, by repacking the asar, and re-applies itself automatically after Wave auto-updates overwrite it.
 
 ## Install
 
@@ -34,7 +34,7 @@ Append to `~/.zshrc`:
 # macOS Sequoia (TCC/App Management), but the terminal can — so we check
 # here every time a shell opens.
 if [[ -f /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar ]] && \
-   ! grep -q "wave-tab-font-patch:18px" /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar 2>/dev/null; then
+   ! grep -q "wave-tab-font-patch:20px" /Users/jcallicott/Applications/Wave.app/Contents/Resources/app.asar 2>/dev/null; then
   ( bash /Users/jcallicott/.config/waveterm/patch/wave-tab-font-patch.sh >/dev/null 2>&1 & )
 fi
 ```
@@ -44,8 +44,8 @@ fi
 ## How it works
 
 1. Extracts `app.asar` with `@electron/asar`
-2. **CSS patch** — patches only the `.tab .name { font-size: 11px }` rule (scoped regex — leaves the other ~10 unrelated `11px` rules in the bundle alone); injects marker comment `/* wave-tab-font-patch:18px */`
-3. **JS patch** — finds the main JS bundle (the `index-*.js` referenced in `index.html` — there are multiple `index-*.js` files, so `find | head -1` is unreliable) and replaces the `text-xs` Tailwind class in the `VTabBar` item's exact className string with the mapped class (e.g. `text-lg`); appends a marker class `wave-tab-font-patch-vtab-18px` for idempotency
+2. **CSS patch** — patches only the `.tab .name { font-size: 11px }` rule (scoped regex — leaves the other ~10 unrelated `11px` rules in the bundle alone); injects marker comment `/* wave-tab-font-patch:20px */`. Also appends a rule applying `TAB_BG_COLOR` (default `#000000`) to `.tab` and the vtab marker class, so each tab pill gets a flat black background in both placements
+3. **JS patch** — finds the main JS bundle (the `index-*.js` referenced in `index.html` — there are multiple `index-*.js` files, so `find | head -1` is unreliable) and replaces the `text-xs` Tailwind class in the `VTabBar` item's exact className string with the mapped class (e.g. `text-xl`); appends a marker class `wave-tab-font-patch-vtab-20px` for idempotency
 4. Repacks with `--unpack "{dist/bin/*,dist/schema/*}"` so native binaries and schema files stay on disk (matches Wave's original build config — packing them into the asar would make them unexecutable and break Wave)
 5. Replaces the asar with `cp` (not `mv`) so it works while Wave is running — `mv` fails with "Operation not permitted" because the running Wave has the asar memory-mapped
 6. Original asar backed up to `app.asar.orig` on first run
@@ -56,11 +56,12 @@ The left sidebar uses Tailwind utility classes, so the vtab size maps to the clo
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `TAB_FONT_SIZE` | `18` | Top tab bar font size in px |
+| `TAB_FONT_SIZE` | `20` | Top tab bar font size in px |
 | `VTAB_FONT_SIZE` | `= TAB_FONT_SIZE` | Left sidebar tab font size in px (snaps to nearest Tailwind class) |
+| `TAB_BG_COLOR` | `#000000` | Background color applied to each tab pill (top bar `.tab` + left-sidebar items). Set to empty string to skip the bg patch. |
 | `WAVE_APP_PATH` | `/Users/jcallicott/Applications/Wave.app` | Wave app bundle path |
 
-To change the size: edit `TAB_FONT_SIZE` / `VTAB_FONT_SIZE` at the top of the script **and** update the marker string in your `.zshrc` snippet to match (e.g. `wave-tab-font-patch:16px`), then restore from `app.asar.orig` and run the script once manually (the patcher won't re-patch an already-patched asar — it detects markers and no-ops).
+To change the size: edit `TAB_FONT_SIZE` / `VTAB_FONT_SIZE` at the top of the script **and** update the marker string in your `.zshrc` snippet to match (e.g. `wave-tab-font-patch:20px`), then restore from `app.asar.orig` and run the script once manually (the patcher won't re-patch an already-patched asar — it detects markers and no-ops).
 
 ## Caveats
 

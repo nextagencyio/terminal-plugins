@@ -21,8 +21,11 @@
 # with the existing unpacked dir.
 #
 # Config:
-#   TAB_FONT_SIZE  (default 18)  — top tab bar, in px
+#   TAB_FONT_SIZE  (default 20)  — top tab bar, in px
 #   VTAB_FONT_SIZE (default = TAB_FONT_SIZE) — left sidebar tabs, in px
+#   TAB_BG_COLOR   (default #000000) — background color applied to each tab
+#                    pill (top bar .tab and left-sidebar VTabBar items). Set
+#                    to an empty string to skip the background patch.
 #   WAVE_APP_PATH  (default platform-specific — see below)
 #
 # The left sidebar uses Tailwind utility classes (text-xs/text-sm/text-base/
@@ -32,8 +35,11 @@
 
 set -uo pipefail
 
-TAB_FONT_SIZE="${TAB_FONT_SIZE:-18}"
+TAB_FONT_SIZE="${TAB_FONT_SIZE:-20}"
 VTAB_FONT_SIZE="${VTAB_FONT_SIZE:-$TAB_FONT_SIZE}"
+# Background color for each tab pill. Empty string disables the bg patch
+# (useful if a future Wave version's tab styling conflicts with a flat bg).
+TAB_BG_COLOR="${TAB_BG_COLOR:-#000000}"
 # Badge icon size on the left sidebar. Wave hardcodes [&_i]:text-[10px] on
 # the VTab TabBadges className, making the spinner/check/bell icon 10px —
 # nearly invisible at that size. This CSS override enlarges it. 14px fits
@@ -192,6 +198,26 @@ else
   log "CSS badge icon already patched — skipping"
 fi
 
+# --- patch CSS: tab pill background color -----------------------------------
+# Applies a flat background color to each tab pill in both placements:
+#   1. Top tab bar  — `.tab` is the pill element wrapping `.tab .name`.
+#   2. Left sidebar — the VTabBar item carries our marker class
+#      (wave-tab-font-patch-vtab-<N>px), so we target that.
+# `!important` overrides Wave's hover/active/selected backgrounds so the
+# pill stays the chosen color in every state. Set TAB_BG_COLOR="" to skip.
+BG_CSS_MARKER="/* wave-tab-font-patch:bg-${TAB_BG_COLOR} */"
+if [[ -n "$TAB_BG_COLOR" ]] && ! grep -qF "$BG_CSS_MARKER" "$CSS_FILE"; then
+  cat >> "$CSS_FILE" <<CSS
+.tab,.wave-tab-font-patch-vtab-${VTAB_FONT_SIZE}px{background-color:${TAB_BG_COLOR}!important}${BG_CSS_MARKER}
+CSS
+  log "patched CSS tab pill bg -> ${TAB_BG_COLOR}"
+  CHANGED=1
+elif [[ -z "$TAB_BG_COLOR" ]]; then
+  log "TAB_BG_COLOR empty — skipping bg patch"
+else
+  log "CSS tab pill bg already patched — skipping"
+fi
+
 # --- patch JS: left sidebar VTabBar item (text-xs -> larger class) ---------
 # The vertical tab bar (app:tabbar = "left") renders each tab as a div with
 # Tailwind classes including `text-xs` (12px). The label child inherits it.
@@ -259,6 +285,10 @@ if ! grep -qF "$BADGE_CSS_MARKER" "$VERIFY_CSS"; then
   log "ERROR: repacked asar missing badge icon CSS marker — aborting without replacing"
   exit 0
 fi
+if [[ -n "$TAB_BG_COLOR" ]] && ! grep -qF "$BG_CSS_MARKER" "$VERIFY_CSS"; then
+  log "ERROR: repacked asar missing tab bg CSS marker — aborting without replacing"
+  exit 0
+fi
 
 # --- replace ---------------------------------------------------------------
 # Use `cp` (not `mv`) so this works even while Wave is running. `mv` (rename)
@@ -268,4 +298,4 @@ fi
 # picks up the patched content.
 log "replacing asar (cp)"
 cp "$WORK_DIR/app.asar.new" "$ASAR"
-log "patched: top tabs=${TAB_FONT_SIZE}px, vtab=${VTAB_FONT_SIZE}px ($VTAB_TW_CLASS), badge icon=${VTAB_BADGE_ICON_SIZE}px; takes effect on next Wave launch"
+log "patched: top tabs=${TAB_FONT_SIZE}px, vtab=${VTAB_FONT_SIZE}px ($VTAB_TW_CLASS), badge icon=${VTAB_BADGE_ICON_SIZE}px, tab bg=${TAB_BG_COLOR:-none}; takes effect on next Wave launch"
