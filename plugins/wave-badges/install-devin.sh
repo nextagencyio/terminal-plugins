@@ -19,16 +19,24 @@ ln -sf "$SCRIPT_DIR/bin/wave-badge" "$BIN"
 
 WB="\"\$HOME/.local/bin/wave-badge\" Devin"
 
-jq --arg wb "$WB" '
+# Attention chime: macOS sound played on PermissionRequest alongside the badge.
+# Override with WAVE_BADGE_CHIME=/path/to/sound.aiff, or WAVE_BADGE_CHIME=none to disable.
+CHIME_SOUND="${WAVE_BADGE_CHIME:-/System/Library/Sounds/Glass.aiff}"
+CHIME=""
+[ "$CHIME_SOUND" != "none" ] && CHIME="afplay $CHIME_SOUND 2>/dev/null || true"
+
+jq --arg wb "$WB" --arg chime "$CHIME" '
   def strip: (.hooks //= []) | .hooks |= map(select((.command // "") | test("wave-badge") | not));
   def add(state): .hooks += [{"type": "command", "command": ($wb + " " + state)}];
+  def stripchime: .hooks |= map(select((.command // "") | test("^afplay ") | not));
+  def addchime: if $chime == "" then . else .hooks += [{"type": "command", "command": $chime}] end;
   .hooks.PermissionRequest //= [{"matcher": "", "hooks": []}] |
   .hooks.Stop              //= [{"matcher": "", "hooks": []}] |
   .hooks.UserPromptSubmit  //= [{"matcher": "", "hooks": []}] |
   .hooks.PostToolUse       //= [{"matcher": "", "hooks": []}] |
   .hooks.SessionStart      //= [{"matcher": "", "hooks": []}] |
   .hooks.SessionEnd        //= [{"matcher": "", "hooks": []}] |
-  .hooks.PermissionRequest[0] |= (strip | add("attention")) |
+  .hooks.PermissionRequest[0] |= (strip | add("attention") | stripchime | addchime) |
   .hooks.Stop[0]              |= (strip | add("done")) |
   .hooks.UserPromptSubmit[0]  |= (strip | add("working")) |
   .hooks.PostToolUse[0]       |= (strip | add("working")) |

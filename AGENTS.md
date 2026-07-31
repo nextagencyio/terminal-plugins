@@ -31,7 +31,13 @@ Environment changes made alongside this repo, so they can be reproduced on anoth
 - Devin CLI: `devin plugins install nextagencyio/wave-plugins`, then `./plugins/wave-badges/install-devin.sh` (idempotent jq merge into `~/.config/devin/config.json`; leaves Devin's separate `warp-scripts/` integration alone)
 - opencode: `./plugins/wave-badges/install-opencode.sh`
 
-### Shell QoL (2026-07-27)
+### Attention chime (2026-07-31)
+Audible alert when an agent needs attention, alongside the visual badge:
+
+- **Devin CLI**: `install-devin.sh` now also wires `afplay /System/Library/Sounds/Glass.aiff` into the `PermissionRequest` hook (idempotent, same strip/re-add pattern as the badge entries). Override the sound with `WAVE_BADGE_CHIME=/path/to/sound.aiff`, or `WAVE_BADGE_CHIME=none` to skip.
+- **Claude Code** (personal settings, not the plugin — sound choice is a machine preference): `~/.claude/settings.json` has `"preferredNotifChannel": "auto"` (OSC 9/777 desktop notifications, works in Ghostty/Wave) plus an async `Notification` hook running the same `afplay` command.
+
+
 Warp-style input experience at the shell level (works in Wave and any terminal):
 
 ```sh
