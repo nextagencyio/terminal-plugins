@@ -26,9 +26,12 @@ horizon|~/Sites/horizon-api|
 
 - macOS Ghostty can only open a window at a directory from the CLI via
   `open -na Ghostty.app --args --working-directory=...` (`+new-window` is
-  Linux/D-Bus only), so **each window is its own Ghostty instance**. They look
+  GTK-only), so **each window is its own Ghostty instance**. They look
   and behave identically; the visible difference is cmd+` won't cycle between
   them (use cmd+tab) and each quits independently.
+- On Linux, `ghostty +new-window` is used instead (single instance, D-Bus).
+  Requires Ghostty >= 1.3, which added `--working-directory`/`-e` to
+  `+new-window`. See the repo's UBUNTU.md.
 - Commands run as `zsh -ic '<cmd>; exec zsh -i'` so the window drops to a
   shell when the command exits instead of closing.
 - Pairs with `window-save-state = always` in Ghostty config: your arranged

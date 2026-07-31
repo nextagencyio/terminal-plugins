@@ -1,0 +1,26 @@
+#!/bin/bash
+# agent-chime — cross-platform attention sound for agent CLI hooks.
+#
+# Usage: agent-chime [sound-file]
+# macOS: afplay (default Glass.aiff). Linux: paplay with the freedesktop
+# "complete" sound, falling back to canberra-gtk-play, then terminal bell.
+# Always exits 0; plays in the background so hooks never block on it.
+set -u
+
+case "$(uname -s)" in
+  Darwin)
+    snd="${1:-/System/Library/Sounds/Glass.aiff}"
+    command -v afplay >/dev/null 2>&1 && [ -f "$snd" ] && { afplay "$snd" >/dev/null 2>&1 & }
+    ;;
+  Linux)
+    snd="${1:-/usr/share/sounds/freedesktop/stereo/complete.oga}"
+    if command -v paplay >/dev/null 2>&1 && [ -f "$snd" ]; then
+      paplay "$snd" >/dev/null 2>&1 &
+    elif command -v canberra-gtk-play >/dev/null 2>&1; then
+      canberra-gtk-play -i complete >/dev/null 2>&1 &
+    else
+      { printf '\a' > /dev/tty; } 2>/dev/null
+    fi
+    ;;
+esac
+exit 0

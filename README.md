@@ -16,5 +16,8 @@ Also installable as a Devin CLI plugin: `devin plugins install nextagencyio/term
 |---|---|---|
 | [ghostty-badges](plugins/ghostty-badges) | Ghostty | Emoji agent-status badges in tab titles via OSC 0 (Claude Code, Devin CLI) |
 | [ghostty-workspaces](plugins/ghostty-workspaces) | Ghostty | `workspace <name>` launcher — open named project windows from a simple config |
+| [agent-chime](plugins/agent-chime) | any | Cross-platform attention sound for agent hooks (macOS afplay / Linux paplay) |
+
+macOS is the primary machine; for Ubuntu see [UBUNTU.md](UBUNTU.md).
 | [wave-badges](plugins/wave-badges) | Wave | Agent status badges, contextual notifications + block titles (Claude Code, Devin CLI, opencode) |
 | [tab-font-patch](plugins/tab-font-patch) | Wave | Enlarge Wave's tab-bar font (no built-in setting exists) by patching `app.asar`, with auto-reapply after Wave updates |

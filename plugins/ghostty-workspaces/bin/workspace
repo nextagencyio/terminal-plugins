@@ -18,25 +18,37 @@
 #   horizon|~/Sites/horizon-web|claude
 #   horizon|~/Sites/horizon-api|
 #
-# Each window is its own Ghostty instance (`open -na`) — the only supported
-# way to open a window at a directory from the CLI on macOS (+new-window is
-# Linux-only). Commands run via `zsh -ic '<cmd>; exec zsh -i'` so the window
-# drops to a shell when the command exits instead of closing.
+# macOS: each window is its own Ghostty instance (`open -na`) — the only
+# supported way to open a window at a directory from the CLI (+new-window is
+# GTK-only). Linux: `ghostty +new-window` (D-Bus, single instance; requires
+# Ghostty >= 1.3 for --working-directory/-e support). Commands run via
+# `$SHELL -ic '<cmd>; exec $SHELL -i'` so the window drops to a shell when
+# the command exits instead of closing.
 set -euo pipefail
 
 CONF="${WORKSPACE_CONF:-$HOME/.config/terminal-plugins/workspaces.conf}"
 APP="${GHOSTTY_APP:-$HOME/Applications/Ghostty.app}"
 [ -d "$APP" ] || APP="/Applications/Ghostty.app"
+WSH="${WORKSPACE_SHELL:-${SHELL:-bash}}"
 
 expand() { case "$1" in "~"|"~/"*) printf '%s%s' "$HOME" "${1#\~}";; *) printf '%s' "$1";; esac; }
 
 open_window() { # dir [command...]
   local dir; dir="$(expand "$1")"; shift
   [ -d "$dir" ] || { echo "workspace: no such directory: $dir" >&2; return 1; }
-  if [ $# -gt 0 ] && [ -n "$1" ]; then
-    open -na "$APP" --args --working-directory="$dir" -e zsh -ic "$*; exec zsh -i"
+  if [ "$(uname -s)" = "Darwin" ]; then
+    if [ $# -gt 0 ] && [ -n "$1" ]; then
+      open -na "$APP" --args --working-directory="$dir" -e "$WSH" -ic "$*; exec $WSH -i"
+    else
+      open -na "$APP" --args --working-directory="$dir"
+    fi
   else
-    open -na "$APP" --args --working-directory="$dir"
+    command -v ghostty >/dev/null || { echo "workspace: ghostty not on PATH" >&2; return 1; }
+    if [ $# -gt 0 ] && [ -n "$1" ]; then
+      ghostty +new-window --working-directory="$dir" -e "$WSH" -ic "$*; exec $WSH -i"
+    else
+      ghostty +new-window --working-directory="$dir"
+    fi
   fi
 }
 

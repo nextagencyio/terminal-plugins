@@ -42,6 +42,13 @@ Wave replacement: Ghostty (1.3.1, `~/Applications/Ghostty.app`). Ghostty has no 
 - Claude Code also has `"terminalProgressBarEnabled": true` → OSC 9;4 progress bars, rendered natively by Ghostty (`progress-style = true` default).
 - Free extra: Ghostty's default `bell-features` include `title` (🔔 prefix on bell while unfocused, auto-clears) and `attention` (dock bounce).
 
+### Ubuntu portability (2026-07-31)
+Jay plans to run this setup on Ubuntu too — `UBUNTU.md` at repo root is the setup checklist. Cross-platform changes:
+
+- `plugins/agent-chime/bin/agent-chime` replaces inline `afplay` everywhere (macOS afplay / Linux paplay→canberra→bell; always exits 0, plays in background). Jay's Claude `Notification` hook and the Devin installer now call it via `~/.local/bin/agent-chime`.
+- `workspace` branches on `uname`: macOS `open -na`, Linux `ghostty +new-window --working-directory [-e ...]` (needs Ghostty >= 1.3 — release notes: "GTK: The +new-window CLI command now accepts -e and --working-directory"). Shell wrapper uses `$SHELL` (override `WORKSPACE_SHELL`), not hardcoded zsh.
+- Platform facts: `window-save-state` is macOS-only (rides macOS state restoration; no GTK equivalent). Ubuntu install: community snap `snap install ghostty --classic` or mkasberg/ghostty-ubuntu .deb — no official package.
+
 ### Ghostty workspaces + window state (2026-07-31)
 - `~/.config/ghostty/config` created with `window-save-state = always` — restores windows/tabs/splits/cwds across quits (validated with `ghostty +validate-config`). Running instances need a config reload or relaunch to pick it up.
 - `plugins/ghostty-workspaces/bin/workspace` (symlinked at `~/.local/bin/workspace`, which is on PATH): named project workspaces — see the plugin README. Personal workspace definitions live in `~/.config/terminal-plugins/workspaces.conf` (gitignored-by-location, per the no-hardcoded-personal-paths convention).
