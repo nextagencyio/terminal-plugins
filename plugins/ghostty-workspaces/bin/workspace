@@ -1,0 +1,71 @@
+#!/bin/bash
+# workspace — named project workspaces for Ghostty on macOS.
+#
+# Ghostty has no built-in workspaces/profiles; this opens Ghostty windows at
+# project directories (optionally running a command) from a simple config.
+# A workspace name may have MULTIPLE lines — each opens its own window, so a
+# workspace can be "agent window + shell window" or one window per repo.
+#
+# Usage:
+#   workspace                       list defined workspaces
+#   workspace <name>                open all windows for <name>
+#   workspace <path>                open a window at a directory (no config needed)
+#   workspace add <name> <dir> [command...]   add an entry
+#   workspace edit                  open the config in $EDITOR
+#
+# Config: ~/.config/terminal-plugins/workspaces.conf (personal, not in the repo)
+# Format: name|dir|command   (command optional; dir supports ~)
+#   horizon|~/Sites/horizon-web|claude
+#   horizon|~/Sites/horizon-api|
+#
+# Each window is its own Ghostty instance (`open -na`) — the only supported
+# way to open a window at a directory from the CLI on macOS (+new-window is
+# Linux-only). Commands run via `zsh -ic '<cmd>; exec zsh -i'` so the window
+# drops to a shell when the command exits instead of closing.
+set -euo pipefail
+
+CONF="${WORKSPACE_CONF:-$HOME/.config/terminal-plugins/workspaces.conf}"
+APP="${GHOSTTY_APP:-$HOME/Applications/Ghostty.app}"
+[ -d "$APP" ] || APP="/Applications/Ghostty.app"
+
+expand() { case "$1" in "~"|"~/"*) printf '%s%s' "$HOME" "${1#\~}";; *) printf '%s' "$1";; esac; }
+
+open_window() { # dir [command...]
+  local dir; dir="$(expand "$1")"; shift
+  [ -d "$dir" ] || { echo "workspace: no such directory: $dir" >&2; return 1; }
+  if [ $# -gt 0 ] && [ -n "$1" ]; then
+    open -na "$APP" --args --working-directory="$dir" -e zsh -ic "$*; exec zsh -i"
+  else
+    open -na "$APP" --args --working-directory="$dir"
+  fi
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  ""|list)
+    [ -s "$CONF" ] || { echo "No workspaces defined. Add one: workspace add <name> <dir> [command]"; exit 0; }
+    awk -F'|' '!/^[[:space:]]*(#|$)/ { printf "%-16s %-45s %s\n", $1, $2, $3 }' "$CONF"
+    ;;
+  add)
+    [ $# -ge 3 ] || { echo "usage: workspace add <name> <dir> [command...]" >&2; exit 1; }
+    name="$2"; dir="$3"; shift 3
+    mkdir -p "$(dirname "$CONF")"
+    printf '%s|%s|%s\n' "$name" "$dir" "$*" >> "$CONF"
+    echo "added: $name -> $dir${*:+ ($*)}"
+    ;;
+  edit)
+    mkdir -p "$(dirname "$CONF")"; exec "${EDITOR:-vi}" "$CONF"
+    ;;
+  *)
+    if [ -d "$(expand "$cmd")" ]; then
+      open_window "$cmd" "${@:2}"
+      exit 0
+    fi
+    [ -s "$CONF" ] || { echo "workspace: '$cmd' is not a directory and no config exists at $CONF" >&2; exit 1; }
+    matches="$(awk -F'|' -v n="$cmd" '!/^[[:space:]]*(#|$)/ && $1 == n' "$CONF")"
+    [ -n "$matches" ] || { echo "workspace: unknown workspace '$cmd' (try: workspace list)" >&2; exit 1; }
+    while IFS='|' read -r _ dir wcmd; do
+      open_window "$dir" "$wcmd"
+    done <<< "$matches"
+    ;;
+esac

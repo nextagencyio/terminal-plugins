@@ -42,6 +42,11 @@ Wave replacement: Ghostty (1.3.1, `~/Applications/Ghostty.app`). Ghostty has no 
 - Claude Code also has `"terminalProgressBarEnabled": true` → OSC 9;4 progress bars, rendered natively by Ghostty (`progress-style = true` default).
 - Free extra: Ghostty's default `bell-features` include `title` (🔔 prefix on bell while unfocused, auto-clears) and `attention` (dock bounce).
 
+### Ghostty workspaces + window state (2026-07-31)
+- `~/.config/ghostty/config` created with `window-save-state = always` — restores windows/tabs/splits/cwds across quits (validated with `ghostty +validate-config`). Running instances need a config reload or relaunch to pick it up.
+- `plugins/ghostty-workspaces/bin/workspace` (symlinked at `~/.local/bin/workspace`, which is on PATH): named project workspaces — see the plugin README. Personal workspace definitions live in `~/.config/terminal-plugins/workspaces.conf` (gitignored-by-location, per the no-hardcoded-personal-paths convention).
+- Platform facts: `ghostty +new-window` is Linux/D-Bus only; on macOS the only CLI route is `open -na Ghostty.app --args --working-directory=...`, which spawns one instance per window. `-e` forces `quit-after-last-window-closed` and skips shell-integration injection, hence the `zsh -ic '<cmd>; exec zsh -i'` wrapper.
+
 ### Attention chime (2026-07-31)
 Audible alert when an agent needs attention, alongside the visual badge:
 
