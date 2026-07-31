@@ -4,7 +4,9 @@ Working notes for AI agents (and future humans) contributing to this repo. Every
 
 ## Repo purpose
 
-Wave Terminal integrations for AI agent CLIs, published three ways from one repo:
+Terminal integrations for AI agent CLIs. **Renamed from `wave-plugins` to `terminal-plugins` on 2026-07-31** — Jay moved off Wave Terminal to Ghostty; Wave plugins are kept for reference, active work targets Ghostty. GitHub redirects the old repo URL, but new references should use `nextagencyio/terminal-plugins`. Canonical local clone: `~/nextagencyio/terminal-plugins` (repo-local git identity + credential helper are set there).
+
+Published three ways from one repo:
 
 - **Claude Code plugin marketplace** — `.claude-plugin/marketplace.json` at root, plugin at `plugins/wave-badges/` (hooks auto-load from `hooks/hooks.json`; do NOT add a `"hooks"` key to `plugin.json` — Claude Code treats it as a duplicate and the plugin fails to load; see commit 6807b60)
 - **Devin CLI plugin** — `.devin-plugin/plugin.json` + `skills/` at root (Devin plugins are skill bundles only; actual hook wiring is done by `plugins/wave-badges/install-devin.sh`)
@@ -30,6 +32,15 @@ Environment changes made alongside this repo, so they can be reproduced on anoth
 - Claude Code: `/plugin marketplace add nextagencyio/wave-plugins` + `/plugin install wave-badges@nextagencyio`
 - Devin CLI: `devin plugins install nextagencyio/wave-plugins`, then `./plugins/wave-badges/install-devin.sh` (idempotent jq merge into `~/.config/devin/config.json`; leaves Devin's separate `warp-scripts/` integration alone)
 - opencode: `./plugins/wave-badges/install-opencode.sh`
+
+### Ghostty badges + progress (2026-07-31)
+Wave replacement: Ghostty (1.3.1, `~/Applications/Ghostty.app`). Ghostty has no per-tab badge API and macOS tabs are native/top-only (`gtk-tabs-location` is Linux-only), so agent status goes through **tab titles** instead:
+
+- `plugins/ghostty-badges/bin/ghostty-badge '<Agent>' <working|attention|question|done|error|clear>` sets the title to `<emoji> <Agent> — <project>` via OSC 0, written to `/dev/tty` (hook stdout is captured by the calling CLI). Guards on `TERM_PROGRAM=ghostty`/`GHOSTTY_RESOURCES_DIR` — silent no-op elsewhere, same convention as wave-badge. `~/.local/bin/ghostty-badge` symlinks to it.
+- Devin: `plugins/ghostty-badges/install-devin.sh` (idempotent, coexists with the wave-badge entries, which are no-ops outside Wave).
+- Claude Code: hooks live in personal `~/.claude/settings.json` (UserPromptSubmit/PostToolUse→working, Notification→attention, Stop→done, SessionEnd→clear) — kept personal rather than shipped as a marketplace plugin for now.
+- Claude Code also has `"terminalProgressBarEnabled": true` → OSC 9;4 progress bars, rendered natively by Ghostty (`progress-style = true` default).
+- Free extra: Ghostty's default `bell-features` include `title` (🔔 prefix on bell while unfocused, auto-clears) and `attention` (dock bounce).
 
 ### Attention chime (2026-07-31)
 Audible alert when an agent needs attention, alongside the visual badge:

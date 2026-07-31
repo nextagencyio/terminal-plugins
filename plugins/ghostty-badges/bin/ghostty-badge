@@ -1,0 +1,31 @@
+#!/bin/bash
+# ghostty-badge — emoji state badges in Ghostty tab titles for AI agent CLIs.
+#
+# Usage: ghostty-badge '<Agent Name>' <working|attention|question|done|error|clear>
+#
+# Ghostty has no per-tab badge API; tab titles follow OSC 0/2 escapes, so we
+# set the title to "<emoji> <Agent> — <project>". Writes straight to /dev/tty
+# because hook stdout is captured by the calling CLI.
+#
+# Silent no-op outside Ghostty and in non-interactive contexts — this lives in
+# agent configs shared across terminals (same convention as wave-badge).
+set -u
+
+[ "${TERM_PROGRAM:-}" = "ghostty" ] || [ -n "${GHOSTTY_RESOURCES_DIR:-}" ] || exit 0
+
+agent="${1:-Agent}"
+state="${2:-clear}"
+proj="$(basename "$PWD")"
+
+case "$state" in
+  working)   icon="🔄" ;;
+  attention) icon="🔔" ;;
+  question)  icon="❓" ;;
+  done)      icon="✅" ;;
+  error)     icon="❌" ;;
+  clear)     { printf '\033]0;\007' > /dev/tty; } 2>/dev/null; exit 0 ;;
+  *)         exit 0 ;;
+esac
+
+{ printf '\033]0;%s %s — %s\007' "$icon" "$agent" "$proj" > /dev/tty; } 2>/dev/null
+exit 0
