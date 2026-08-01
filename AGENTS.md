@@ -184,3 +184,6 @@ Wave spawns Devin directly as the tab shell — no bash, no prompt flash. Two pi
 **`~/.bashrc` fallback guard** — kept in case a Wave-spawned interactive bash somehow bypasses the custom shell path (e.g. a split pane that falls back to bash). Same guard as before: `WAVETERM=1` + interactive `$-` + `DEVIN_AUTOSTARTED` unset → `exec devin -c --permission-mode=dangerous`. Devin's own exec tool spawns non-interactive shells (`$-` = `hBc`) that also inherit `DEVIN_AUTOSTARTED=1`, so there's no recursion.
 
 `devin -c` resumes the most recent session in the current directory (starts a new one if none exists). `exec` replaces the shell — the tab closes when Devin exits. The asar patch auto-reapply moved from `.bashrc` to the launcher script because new Wave tabs no longer run bash; the `.bashrc` copy is kept for non-Wave interactive shells.
+
+### agent-vision MCP server removed (2026-07-31)
+Removed the `@kitlau/agent-vision-mcp` server from `~/.config/devin/mcp_config.json` and its permission entry from `~/.config/devin/config.json`. The API key was a placeholder (`YOUR_FIREWORKS_API_KEY_HERE`) that was never filled in — the server always 401'd. Vision for Devin/GLM is handled by the vision skill (OpenRouter Qwen), not an MCP server.
