@@ -187,3 +187,6 @@ Wave spawns Devin directly as the tab shell — no bash, no prompt flash. Two pi
 
 ### agent-vision MCP server removed (2026-07-31)
 Removed the `@kitlau/agent-vision-mcp` server from `~/.config/devin/mcp_config.json` and its permission entry from `~/.config/devin/config.json`. The API key was a placeholder (`YOUR_FIREWORKS_API_KEY_HERE`) that was never filled in — the server always 401'd. Vision for Devin/GLM is handled by the vision skill (OpenRouter Qwen), not an MCP server.
+
+### Ghostty config + tab CSS tracked (2026-08-02)
+`plugins/ghostty-config/` now tracks the Ghostty config (`config`) and GTK tab bar CSS (`ghostty-custom.css`). Previously these lived only at `~/.config/ghostty/` untracked. `install.sh` symlinks both into place (idempotent, backs up existing files). CSS uses the Ayu dark theme palette with a blue active tab (`#1e3a5f` bg / `#7ec4ff` text); inactive tabs stay dark (`#0b0e14`). To change tab colors, edit `ghostty-custom.css` — the `tabbar tab:checked` block controls the active tab.

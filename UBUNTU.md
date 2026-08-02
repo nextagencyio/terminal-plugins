@@ -32,11 +32,14 @@ ln -sf "$PWD/agent-chime/bin/agent-chime"         ~/.local/bin/agent-chime
 
 ## 3. Ghostty config (`~/.config/ghostty/config`)
 
-```ini
-# GTK-only niceties (no macOS equivalents):
-# gtk-tabs-location = top|bottom|hidden
-# window-show-tab-bar = always|auto|never
+Config and GTK tab bar CSS are tracked in `plugins/ghostty-config/`. Install:
+
+```sh
+./plugins/ghostty-config/install.sh   # symlinks config + ghostty-custom.css into ~/.config/ghostty/
 ```
+
+The CSS styles the tab bar to match the Ayu dark theme with a blue active tab.
+Edit `plugins/ghostty-config/ghostty-custom.css` to change tab colors.
 
 Do NOT bother with `window-save-state = always` — it rides macOS state
 restoration and does nothing on GTK. On Ubuntu, `workspace <name>` (or
