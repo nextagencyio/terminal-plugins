@@ -23,5 +23,8 @@ window-padding-x = 8
 window-padding-y = 4
 window-decoration = true
 
+# Close the focused split, not the whole tab (override default ctrl+shift+w=close_tab)
+keybind = ctrl+shift+w=close_surface
+
 # Tab bar font size (GTK custom CSS — no native config option for this)
 gtk-custom-css = ~/.config/ghostty/ghostty-custom.css
