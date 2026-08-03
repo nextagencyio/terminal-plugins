@@ -64,7 +64,7 @@ Audible alert when an agent needs attention, alongside the visual badge:
 Swapped `~/.config/ghostty/config` `background` from `#181818` (Warp Default Dark) to `#000000` (true black) — keeps the existing Warp accent palette, cursor, and selection colors. Jay prefers a pure-black bg over the dark-gray default. Validated with `ghostty +validate-config`; running instances need a config reload (`Cmd+Shift+,`) or relaunch to pick it up.
 
 ### Ghostty TokyoNight theme (2026-08-03)
-Swapped the Mac `~/.config/ghostty/config` from the explicit Warp palette to the built-in `theme = TokyoNight Night`, retaining a `background = #000000` override for Jay's preferred true-black background and setting `font-size = 14` (up from Ghostty's 13pt default). TokyoNight controls the foreground, cursor, selection, and ANSI palette. The tracked Ubuntu config remains `theme = Ayu`; apply that separately if cross-machine parity is wanted. Validated with `ghostty +validate-config`; running instances need a config reload (`Cmd+Shift+,`) or relaunch to pick it up.
+Swapped the Mac `~/.config/ghostty/config` from the explicit Warp palette to the built-in `theme = TokyoNight Night`, retaining a `background = #000000` override for Jay's preferred true-black background and setting `font-size = 18` (up from Ghostty's 13pt default). TokyoNight controls the foreground, cursor, selection, and ANSI palette. The tracked Ubuntu config remains `theme = Ayu`; apply that separately if cross-machine parity is wanted. Validated with `ghostty +validate-config`; running instances need a config reload (`Cmd+Shift+,`) or relaunch to pick it up.
 
 
 ### Shell QoL — macOS/zsh (2026-07-27)
