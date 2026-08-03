@@ -16,7 +16,7 @@ progress-style = true
 
 # Font
 font-family = "JetBrains Mono"
-font-size = 14
+font-size = 18
 
 # Window
 window-padding-x = 8

@@ -11,7 +11,7 @@ tabbar {
 tabbar tab {
   background-color: #0b0e14;
   color: #bfbdb6;
-  font-size: 14px;
+  font-size: 18px;
 }
 tabbar tab:checked {
   background-color: #1e3a5f;
@@ -20,7 +20,7 @@ tabbar tab:checked {
 
 /* Tab labels */
 tabbar tab label {
-  font-size: 14px;
+  font-size: 18px;
   color: #bfbdb6;
 }
 tabbar tab:checked label {
@@ -29,7 +29,7 @@ tabbar tab:checked label {
 
 /* Tab close buttons */
 tabbar tab button {
-  font-size: 14px;
+  font-size: 18px;
   color: #bfbdb6;
 }
 

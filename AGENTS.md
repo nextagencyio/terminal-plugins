@@ -197,5 +197,8 @@ Removed the `@kitlau/agent-vision-mcp` server from `~/.config/devin/mcp_config.j
 ### Ghostty config + tab CSS tracked (2026-08-02)
 `plugins/ghostty-config/` now tracks the Ghostty config (`config`) and GTK tab bar CSS (`ghostty-custom.css`). Previously these lived only at `~/.config/ghostty/` untracked. `install.sh` symlinks both into place (idempotent, backs up existing files). CSS uses the Ayu dark theme palette with a blue active tab (`#1e3a5f` bg / `#7ec4ff` text); inactive tabs stay dark (`#0b0e14`). To change tab colors, edit `ghostty-custom.css` — the `tabbar tab:checked` block controls the active tab.
 
+On 2026-08-03, the shared Ghostty baseline was raised to 18px for terminal text
+and GTK tab labels, matching the active macOS configuration.
+
 ### Gmail MCP disabled (2026-08-03)
 Removed the Gmail MCP server from `~/.config/devin/mcp_config.json` and `~/.claude/settings.json` after 97 stale launcher/server pairs accumulated and consumed substantial memory. Stopped 290 Gmail MCP-related processes; future Devin and Claude Code sessions will not start the server.
